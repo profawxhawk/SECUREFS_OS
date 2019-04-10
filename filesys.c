@@ -60,9 +60,55 @@ ssize_t allocate_block(char *buf,int fd1,int index){
 	}
 	return size;
 }
+unsigned char *
+strcat1(unsigned char *dest, unsigned const char *src)
+{
+   int i,j;
+    for (i = 0; dest[i] != '\0'; i++);
+    for (j = 0; src[j] != '\0'; j++);
+    unsigned char* temp=malloc((i+j)*sizeof(char));
+	 for (int i1 = 0;i1<i; i1++){
+	 	temp[i1]=dest[i1];
+	 }
+    for (int j1 = i; j1<j+i; j1++){
+    	temp[j1]=src[j1-i];
+    }
+    return temp;
+}
+struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
+	if(n==1){
+		return container[0];
+	}
+	int k=n/2;
+	int flag=0;
+	if((k)%2!=0&&(n!=2)){
+		flag=1;
+		k=k+1;
+	}
+	struct merkle_tree *container1[k];
+	for(int i=0;i<k;i++){
+		container1[i]=malloc(sizeof(struct merkle_tree));
+	}
+	int j=0;
+	for(int i=0;i<n;i+=2){
+		struct merkle_tree* parent=malloc(sizeof(struct merkle_tree));
+		parent->value=malloc(20);
+		container[i]->parent=parent;
+		container[i+1]->parent=parent;
+		get_sha1_hash(strcat1(container[i]->value,container[i+1]->value),20,parent->value);
+		container1[j]=parent;
+		j++;
+		if(flag==1&&j==(k-1)){
+		container1[j]=parent;
+		}
+	}
+
+	return build_merkle(container1,k);
+}
+	
 int s_open_temp (const char *pathname, int flags, mode_t mode)
 {
-	//struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
+	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
 	assert (filesys_inited);
 	int fd1=open(pathname, flags, mode);
 	printf("%d\n",fd1);
@@ -70,7 +116,11 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
 	if (flag==0) {
 		return 0;
 	}
-	unsigned char *container[2000];
+	struct merkle_tree *container[2000];
+	for(int i=0;i<2000;i++){
+		container[i]=malloc(sizeof(struct merkle_tree));
+		container[i]->value=malloc(20);
+	}
 	for(int i=0;i<number_of_blocks;i++){
 		char *buf=malloc(64*sizeof(char));
 		ssize_t temp_size=allocate_block(buf,fd1,i);
@@ -79,14 +129,10 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
 		}
 		unsigned char* hashed_val=malloc(20);
 		get_sha1_hash(buf,64,hashed_val);
-		container[i]=hashed_val;
+		container[i]->value=hashed_val;
 	}
-	for(int i=0;i<number_of_blocks;i++){
-		printf("%s\n",container[i]);
-	}
-	if(container[0]==NULL){
-		printf("%s\n", "snkrox");
-	}
+	root=build_merkle(container,2000);
+	printf("%s\n",root->value);
 	lseek(fd1,0,SEEK_SET);
 	printf("successful");
 	return fd1;
