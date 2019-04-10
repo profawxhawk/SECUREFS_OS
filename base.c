@@ -76,5 +76,7 @@ int main ()
 		snprintf (filename, 32, "foo_%d.txt", i);
 		main_loop (filename);
 	}
+	s_open_temp("foo_2.txt",O_RDONLY, S_IRUSR|S_IWUSR);
 	return 0;
+
 }

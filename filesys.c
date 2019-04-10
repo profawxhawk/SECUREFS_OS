@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
 #define number_of_blocks 128000/64
 static int filesys_inited = 0;
 
@@ -49,34 +50,42 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	int fd1=open (pathname, flags, mode);
 	return fd1;
 }
-size_t allocate_block(char *buf,int fd1,int index){
+ssize_t allocate_block(char *buf,int fd1,int index){
 
-	lseek(fd1,index*64,SEEK_SET);
-	size_t size=read(fd1,buf,64);
+	//lseek(fd1,index*64,SEEK_SET);
+	ssize_t size=read(fd1,buf,sizeof(buf));
 	if(size==-1){
-		printf("error while allocating block in s_open");
+		printf("%d\n",index);
+		printf("error while allocating block in s_open\n");
 	}
 	return size;
 }
 int s_open_temp (const char *pathname, int flags, mode_t mode)
 {
-	merkle_tree* root=malloc(sizeof(struct merkle_tree));
+	//struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
 	assert (filesys_inited);
 	int fd1=open(pathname, flags, mode);
+	printf("%d\n",fd1);
 	int flag=file_descriptior_error(fd1,pathname);
 	if (flag==0) {
 		return 0;
 	}
-	char *container[2000];
+	unsigned char *container[2000];
 	for(int i=0;i<number_of_blocks;i++){
-		char buf[64];
-		size_t temp_size=allocate_block(buf,fd1,i);
+		char *buf=malloc(64*sizeof(char));
+		ssize_t temp_size=allocate_block(buf,fd1,i);
 		if(temp_size==-1){
 			return 0;
 		}
-		unsigned char* hashed_val;
-		get_sha1_hash(buf,64,(unsigned char*)hashed_val);
-		memcpy(container[i],hashed_val, sizeof(hashed_val));
+		unsigned char* hashed_val=malloc(20);
+		get_sha1_hash(buf,64,hashed_val);
+		container[i]=hashed_val;
+	}
+	for(int i=0;i<number_of_blocks;i++){
+		printf("%s\n",container[i]);
+	}
+	if(container[0]==NULL){
+		printf("%s\n", "snkrox");
 	}
 	lseek(fd1,0,SEEK_SET);
 	printf("successful");

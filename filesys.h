@@ -14,5 +14,5 @@ struct merkle_tree{
 	struct merkle_tree* right;
 	struct merkle_tree*  left;
 	unsigned char* value;
-}
+};
 #endif
