@@ -135,6 +135,54 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
 	printf("%s\n",root->value);
 	lseek(fd1,0,SEEK_SET);
 	printf("successful");
+
+
+	//tdb
+	char * pch;
+	char fileName[32];
+	strcpy(fileName,"secure.txt");
+  	FILE* file = fopen(fileName, "r");
+  	char line[256];
+  	// fgets(line, sizeof(line), file);
+  	int flagu = 0;//0 means not found
+  	// int integrity_check = 0;
+
+    while(fgets(line, sizeof(line), file)){
+	    pch = strtok (line," ");
+
+	    while (pch != NULL)
+	    {
+	    	if(strcmp("\n",pch) == 0){
+	    		break;
+	    	}
+            else{
+                if(strcmp(pch,pathname)==0){
+                	pch = strtok (NULL, " ");
+                	flagu = 1;//file found
+                	if(strcmp((char*)root->value,pch)==0){
+                		// integrity_check = 1;
+                		return 0;
+                	}
+                }
+            }
+            pch = strtok (NULL, " ");
+	    }
+    }
+
+    fclose(file);
+
+    if(flagu == 0){
+
+    	FILE* fptr = fopen("secure.txt", "w");
+    	char* str1="";
+    	strcpy(str1,pathname);
+    	strcat(str1," ");
+    	strcat(str1,(char*)root->value);
+    	strcat(str1," \n");
+    	fprintf(fptr,"%s", str1);
+   		fclose(fptr);
+   		printf("%s\n","here" );
+    }
 	return fd1;
 }
 /* SEEK_END should always return the file size 
@@ -187,10 +235,10 @@ int filesys_init (void)
 	int fd1;
 	char filename[32];
 	strcpy(filename,"secure.txt");
-	fd1 = open (filename, O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	fd1 = open (filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
 	int flag=file_descriptior_error(fd1,"secure.txt");
 	if (flag==0) {
-		return 0;
+		return -1;
 	}
 
 	return 0;
