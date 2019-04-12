@@ -62,21 +62,24 @@ int main_loop (char *filename)
 int main ()
 {
 
-	int i;
-	char filename[32];
+	// int i;
+	// char filename[32];
 
-	system ("rm -rf foo*.txt");
+	// system ("rm -rf foo*.txt");
 
-	if (filesys_init() == 1) {
-		printf ("Unable to init filesys\n");
-		return 0;
-	}
+	// if (filesys_init() == 1) {
+	// 	printf ("Unable to init filesys\n");
+	// 	return 0;
+	// }
 
-	for (i = 0; i < NUM_FILES; i++) {
-		snprintf (filename, 32, "foo_%d.txt", i);
-		main_loop (filename);
-	}
-	s_open_temp("foo_2.txt",O_RDONLY, S_IRUSR|S_IWUSR);
+	// for (i = 0; i < NUM_FILES; i++) {
+	// 	snprintf (filename, 32, "foo_%d.txt", i);
+	// 	main_loop (filename);
+	// }
+	s_open_temp("foo_7.txt",O_RDONLY, S_IRUSR|S_IWUSR);
+	// s_open_temp("foo_1.txt",O_RDONLY, S_IRUSR|S_IWUSR);
+	// int k=filesys_init();
+	// printf("%d\n",k);
 	return 0;
 
 }

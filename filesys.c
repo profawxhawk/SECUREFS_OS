@@ -30,19 +30,21 @@ void get_sha1_hash (const void *buf, int len, const void *sha1)
 int file_descriptior_error(int fd1,const char *pathname){
 	if (fd1 == -1) {
 		printf ("Unable to open %s\n",pathname);
-		return 0;
+		return -1;
 	}
 	return 1;
 }
-// long find_len(int fd1){
-// 	FILE* f = fdopen(fd1, "w");
-// 	lseek (fd1, 0, SEEK_END);
-// 	long len=ftell(f);
-// 	lseek (fd1, 0, SEEK_SET);
-// 	printf("%ld\n",len);
-// 	return len;
-// 	fclose(f);
-// }
+long int find_len(const char file_name[]){
+	FILE* fp = fopen(file_name, "r"); 
+    if (fp == NULL) { 
+        printf("File Not Found!\n"); 
+        return -1; 
+    } 
+    fseek(fp, 0L, SEEK_END); 
+    long int res = ftell(fp); 
+    fclose(fp); 
+    return res; 
+}
 int s_open (const char *pathname, int flags, mode_t mode)
 {
 
@@ -95,7 +97,7 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 		parent->value=malloc(20);
 		container[i]->parent=parent;
 		container[i+1]->parent=parent;
-		get_sha1_hash(strcat1(container[i]->value,container[i+1]->value),20,parent->value);
+		get_sha1_hash(strcat1(container[i]->value,container[i+1]->value),40,parent->value);
 		container1[j]=parent;
 		j++;
 		if(flag==1&&j==(k-1)){
@@ -105,17 +107,33 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 
 	return build_merkle(container1,k);
 }
-	
+int init_container(struct merkle_tree *container[2000],int fd1){
+	for(int i=0;i<2000;i++){
+		container[i]=malloc(sizeof(struct merkle_tree));
+		container[i]->value=malloc(20);
+	}
+	for(int i=0;i<number_of_blocks;i++){
+		char *buf=malloc(64*sizeof(char));
+		ssize_t temp_size=allocate_block(buf,fd1,i);
+		if(temp_size==-1){
+			return 0;
+		}
+		unsigned char* hashed_val=malloc(20);
+		get_sha1_hash(buf,64,hashed_val);
+		container[i]->value=hashed_val;
+	}
+	return 1;
+}
 int s_open_temp (const char *pathname, int flags, mode_t mode)
 {
 	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
-	assert (filesys_inited);
+	//assert (filesys_inited);
 	int fd1=open(pathname, flags, mode);
-	printf("%d\n",fd1);
 	int flag=file_descriptior_error(fd1,pathname);
-	if (flag==0) {
-		return 0;
+	if (flag==-1) {
+		return -1;
 	}
+	printf("%s%ld\n","length ",find_len(pathname));
 	struct merkle_tree *container[2000];
 	for(int i=0;i<2000;i++){
 		container[i]=malloc(sizeof(struct merkle_tree));
@@ -135,9 +153,7 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
 	printf("%s\n",root->value);
 	lseek(fd1,0,SEEK_SET);
 	printf("successful");
-
-
-	//tdb
+	close(fd1);
 	char * pch;
 	char fileName[32];
 	strcpy(fileName,"secure.txt");
@@ -145,7 +161,7 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
   	char line[256];
   	// fgets(line, sizeof(line), file);
   	int flagu = 0;//0 means not found
-  	// int integrity_check = 0;
+  	int integrity_check = 0;
 
     while(fgets(line, sizeof(line), file)){
 	    pch = strtok (line," ");
@@ -160,21 +176,23 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
                 	pch = strtok (NULL, " ");
                 	flagu = 1;//file found
                 	if(strcmp((char*)root->value,pch)==0){
-                		// integrity_check = 1;
-                		return 0;
+                		integrity_check = 1;
                 	}
                 }
             }
             pch = strtok (NULL, " ");
 	    }
+	    if(integrity_check==1){
+	    	break;
+	    }
     }
-
     fclose(file);
-
+    if(flagu==1&&integrity_check==0){
+    	return -1;
+    }
     if(flagu == 0){
-
-    	FILE* fptr = fopen("secure.txt", "w");
-    	char* str1="";
+    	FILE* fptr = fopen("secure.txt", "a");
+    	char* str1=malloc(strlen(pathname)+23);
     	strcpy(str1,pathname);
     	strcat(str1," ");
     	strcat(str1,(char*)root->value);
@@ -232,14 +250,88 @@ int s_close (int fd)
 int filesys_init (void)
 {
 	filesys_inited = 1;
-	int fd1;
+	char * pch;
 	char filename[32];
+	char *fileNames[2];
+	char *hashvalues[2];
 	strcpy(filename,"secure.txt");
-	fd1 = open (filename, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
-	int flag=file_descriptior_error(fd1,"secure.txt");
-	if (flag==0) {
+	FILE* file = fopen(filename, "a");
+	FILE* file1 = fopen("secure1.txt", "a");
+	char line[256];
+	int flag=file_descriptior_error(fileno(file),"secure.txt");
+	if (flag==-1) {
 		return -1;
 	}
+	int flag1=file_descriptior_error(fileno(file1),"secure1.txt");
+	if (flag1==-1) {
+		return -1;
+	}
+	int count=0;
+	while(fgets(line, sizeof(line), file)){
+	    pch = strtok (line," ");
 
-	return 0;
+	    while (pch != NULL)
+	    {
+	    	if(strcmp("\n",pch) == 0){
+	    		break;
+	    	}
+            else{
+            		
+                	if( access(pch, F_OK ) != -1 ) {
+                			fileNames[count]=malloc(32);
+		                	strcpy(fileNames[count],pch);
+		                	pch = strtok (NULL, " ");
+		                	hashvalues[count]=malloc(20);
+		                	strcpy(hashvalues[count],pch);
+		                	char* str1=malloc(strlen(fileNames[count])+23);
+					    	strcpy(str1,fileNames[count]);
+					    	strcat(str1," ");
+					    	strcat(str1,hashvalues[count]);
+					    	strcat(str1," \n");
+					    	fprintf(file1,"%s", str1);
+					    	count++;
+					} 
+					else{
+						pch = strtok (NULL, " ");
+					}
+					
+                }
+                pch = strtok (NULL, " ");
+        }
+            
+	}
+	remove("secure.txt");
+    fclose(file);
+    rename("secure1.txt", "secure.txt");
+    fclose(file1);
+	printf("duplicates removed\n");
+	int integrity_flag=0;
+		
+    for(int i=0;i<count;i++){
+    	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
+    	int fd1=open(fileNames[i],O_RDONLY, S_IRUSR|S_IWUSR);
+		int flag=file_descriptior_error(fd1,fileNames[i]);
+		if (flag==-1) {
+			return -1;
+		}
+    	struct merkle_tree *container[2000];
+		if(init_container(container,fd1)==0){
+			return -1;
+	    }
+		root=build_merkle(container,2000);
+		lseek(fd1,0,SEEK_SET);
+		if(strcmp((char *)root->value,hashvalues[i])!=0){
+ 			printf("%s\n","integrity failed");
+			close(fd1);
+			integrity_flag=1;
+		}
+		close(fd1);
+    }
+    if(fileNames[0]==NULL){
+	printf("fine1");
+    }
+    if(hashvalues[0]==NULL){
+    	printf("fine2");
+    }
+	return integrity_flag;
 }
