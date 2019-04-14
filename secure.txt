@@ -1,8 +1,8 @@
-foo_7.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_0.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_1.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_2.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_3.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_4.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_5.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
-foo_6.txt Δ}©NnΨΓ~ΣJΛmΤ„ωΙ 
+foo_0.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_1.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_2.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_3.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_4.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_5.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_6.txt q`ΟNΡυ¤T®4·¤—Y 
+foo_7.txt q`ΟNΡυ¤T®4·¤—Y 

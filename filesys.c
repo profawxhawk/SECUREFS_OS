@@ -51,27 +51,12 @@ long int find_len(const char file_name[]){
 ssize_t allocate_block(char *buf,int fd1,int index){
 
 	//lseek(fd1,index*64,SEEK_SET);
-	ssize_t size=read(fd1,buf,sizeof(buf));
+	ssize_t size=read(fd1,buf,64);//8*sizeof(buf));
 	if(size==-1){
 		
 		printf("error while allocating block in s_open\n");
 	}
 	return size;
-}
-unsigned char *
-strcat1(unsigned char *dest, unsigned const char *src)
-{
-   int i,j;
-    for (i = 0; dest[i] != '\0'; i++);
-    for (j = 0; src[j] != '\0'; j++);
-    unsigned char* temp=malloc((i+j)*sizeof(char));
-	 for (int i1 = 0;i1<i; i1++){
-	 	temp[i1]=dest[i1];
-	 }
-    for (int j1 = i; j1<j+i; j1++){
-    	temp[j1]=src[j1-i];
-    }
-    return temp;
 }
 struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 	if(n==1){
@@ -90,12 +75,19 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 	int j=0;
 	for(int i=0;i<n;i+=2){
 		struct merkle_tree* parent=malloc(sizeof(struct merkle_tree));
-		parent->value=malloc(20);
+		//parent->value=malloc(20);
 		container[i]->parent=parent;
 		container[i+1]->parent=parent;
 		parent->left=container[i];
 		parent->right=container[i+1];
-		get_sha1_hash(strcat1(container[i]->value,container[i+1]->value),40,parent->value);
+		char temp[40];
+		 for (int i1 = 0;i1<20; i1++){
+	 	temp[i1]=container[i]->value[i1];
+	 	}
+	    for (int j1 = 20; j1<40; j1++){
+	    	temp[j1]=container[i+1]->value[j1-20];
+	    }
+		get_sha1_hash(temp,40,parent->value);
 		container1[j]=parent;
 		j++;
 		if(flag==1&&j==(k-1)){
@@ -105,20 +97,20 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 
 	return build_merkle(container1,k);
 }
-int init_container(struct merkle_tree *container[k],int fd1){
+int init_container(struct merkle_tree **container,int fd1,long int k){
 	for(int i=0;i<k;i++){
 		container[i]=malloc(sizeof(struct merkle_tree));
-		container[i]->value=malloc(20);
+		//container[i]->value=malloc(20);
 	}
-	for(int i=0;i<number_of_blocks;i++){
+	for(int i=0;i<k;i++){
 		char *buf=malloc(64*sizeof(char));
 		ssize_t temp_size=allocate_block(buf,fd1,i);
 		if(temp_size==-1){
 			return 0;
 		}
-		unsigned char* hashed_val=malloc(20);
-		get_sha1_hash(buf,64,hashed_val);
-		container[i]->value=hashed_val;
+		//unsigned char* hashed_val=malloc(20);
+		get_sha1_hash(buf,64,(char *)container[i]->value);
+		//strcpy((char *)container[i]->value,(char *)hashed_val);
 	}
 	return 1;
 }
@@ -142,7 +134,7 @@ int s_open(const char *pathname, int flags, mode_t mode)
 	struct merkle_tree *container[k];
 	for(int i=0;i<k;i++){
 		container[i]=malloc(sizeof(struct merkle_tree));
-		container[i]->value=malloc(20);
+		//container[i]->value=malloc(20);
 	}
 	for(int i=0;i<k;i++){
 		char *buf=malloc(64*sizeof(char));
@@ -150,20 +142,21 @@ int s_open(const char *pathname, int flags, mode_t mode)
 		if(temp_size==-1){
 			return 0;
 		}
-		unsigned char* hashed_val=malloc(20);
-		get_sha1_hash(buf,64,hashed_val);
+		//unsigned char* hashed_val=malloc(20);
+		get_sha1_hash(buf,64,(char *)container[i]->value);
 		if(i==0){
-			printf("%s\n",hashed_val);
+			// printf("%s\n",hashed_val);
 		}
-		container[i]->value=hashed_val;
+		//strcpy((char *)container[i]->value,(char *)hashed_val);
 	}
 	root=build_merkle(container,k);
-	root->filename=pathname;
+	root->filename=malloc(10);
+	strcpy(root->filename,pathname);
 	root_list[counter]=malloc(sizeof(struct merkle_tree));
 	root_list[counter]=root;
 	counter++;
 	lseek(fd1,0,SEEK_SET);
-	printf("successful\n");
+	// printf("successful\n");
 	char * pch;
 	char fileName[32];
 	strcpy(fileName,"secure.txt");
@@ -273,24 +266,58 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 		close(fd1);
 		if(strcmp((char *)hash,(char *)(temp+((int)index-1)*sizeof(struct merkle_tree))->value)!=0){
 			return -1;
+
 		}
-		printf("%s\n",root_list[root_index]->value);
-		write (fd, buf, count);
+		int size=write (fd, buf, count);
 		int fd2=open(root_list[root_index]->filename,O_RDONLY, S_IRUSR|S_IWUSR);
 		int flag=file_descriptior_error(fd2,root_list[root_index]->filename);
 		if (flag==-1) {
 			return -1;
 		}
 		k=find_len(root_list[root_index]->filename);
+		k=k/64;
     	struct merkle_tree *container[k];
-		if(init_container(container,fd1)==0){
+		if(init_container(container,fd1,k)==0){
 			return -1;
 	    }
 		struct merkle_tree* root=build_merkle(container,k);
-		printf("%s\n",root->value);
+		root->filename=root_list[root_index]->filename;
+		root_list[root_index]=root;
 		close(fd2);
+		char * pch;
+	  	FILE* file = fopen("secure.txt", "r+");
+	  	char line[256];
+	  	int fkag=0;
+	    while(fgets(line, sizeof(line), file)){
+		    pch = strtok (line," ");
 
-
+		    while (pch != NULL)
+		    {
+		    	if(strcmp("\n",pch) == 0){
+		    		break;
+		    	}
+	            else{
+	                if(strcmp(pch,root_list[root_index]->filename)==0){
+	                	fseek(file,ftell(file)-32,SEEK_SET);
+	                	char* str1=malloc(strlen(root_list[root_index]->filename)+23);
+				    	strcpy(str1,root_list[root_index]->filename);
+				    	strcat(str1," ");
+				    	strcat(str1,(char*)root_list[root_index]->value);
+				    	strcat(str1," \n");
+				    	fprintf(file,"%s", str1);
+				    	fkag=1;
+				    	break;
+	                }
+	            }
+	            pch = strtok (NULL, " ");
+		    
+		    }
+		    if(fkag==1){
+		    	break;
+		    }
+	    }
+	   fclose(file);
+	   return size;
 	}
 	return write (fd, buf, count);
 }
@@ -326,7 +353,12 @@ int filesys_init (void)
 	char *fileNames[8];
 	char *hashvalues[8];
 	strcpy(filename,"secure.txt");
-	FILE* file = fopen(filename, "a");
+	if( access(filename, F_OK ) == -1 ) {
+		FILE* file2= fopen(filename, "a");
+		fclose(file2);
+	}
+	else{
+	FILE* file = fopen(filename, "r");
 	FILE* file1 = fopen("secure1.txt", "a");
 	char line[256];
 	int flag=file_descriptior_error(fileno(file),"secure.txt");
@@ -374,7 +406,7 @@ int filesys_init (void)
     fclose(file);
     rename("secure1.txt", "secure.txt");
     fclose(file1);
-	printf("duplicates removed\n");
+	// printf("duplicates removed\n");
 	int integrity_flag=0;
     for(int i=0;i<count;i++){
     	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
@@ -384,8 +416,9 @@ int filesys_init (void)
 			return -1;
 		}
 		k=find_len(fileNames[i]);
+		k=k/64;
     	struct merkle_tree *container[k];
-		if(init_container(container,fd1)==0){
+		if(init_container(container,fd1,k)==0){
 			return -1;
 	    }
 		root=build_merkle(container,k);
@@ -398,10 +431,12 @@ int filesys_init (void)
 		close(fd1);
     }
     if(fileNames[0]==NULL){
-	printf("fine1");
+	// printf("fine1");
     }
     if(hashvalues[0]==NULL){
-    	printf("fine2");
+    	// printf("fine2");
     }
 	return integrity_flag;
+}
+return 0;
 }

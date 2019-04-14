@@ -39,7 +39,7 @@ static int open_file (char *filename)
 {
 	int fd2;
 
-	fd2 = s_open_temp(filename, O_RDONLY, 0);
+	fd2 = s_open(filename, O_RDONLY, 0);
 	if (fd2 == -1) {
 		return 0;
 	}

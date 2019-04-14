@@ -13,7 +13,7 @@ struct merkle_tree{
 	struct merkle_tree* parent;
 	struct merkle_tree* right;
 	struct merkle_tree*  left;
-	const char* filename;
-	unsigned char* value;
+	char* filename;
+	unsigned char value[20];
 };
 #endif
