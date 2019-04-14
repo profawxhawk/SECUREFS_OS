@@ -427,6 +427,7 @@ int filesys_init (void)
  			printf("%s\n","integrity failed");
 			close(fd1);
 			integrity_flag=1;
+			break;
 		}
 		close(fd1);
     }
