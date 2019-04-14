@@ -57,7 +57,6 @@ int main ()
 		return 0;
 	}
 	snprintf (filename, 32, "foo_%d.txt", corrupt_idx);
-	//open_file(filename)
 	ret = corrupt_file (filename);
 	if (ret == 0) {
 		return 0;

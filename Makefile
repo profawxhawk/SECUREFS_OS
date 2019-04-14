@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Werror -lssl -lcrypto -ggdb
+CFLAGS=-Wall -Werror -lssl -lcrypto -lm -ggdb
 
 default: testcase1 testcase2 testcase3 testcase4 base
 

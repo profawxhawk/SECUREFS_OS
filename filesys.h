@@ -11,8 +11,9 @@ int filesys_init (void);
 int s_open_temp (const char *pathname, int flags, mode_t mode);
 struct merkle_tree{
 	struct merkle_tree* parent;
-	// struct merkle_tree* right;
-	// struct merkle_tree*  left;
+	struct merkle_tree* right;
+	struct merkle_tree*  left;
+	const char* filename;
 	unsigned char* value;
 };
 #endif

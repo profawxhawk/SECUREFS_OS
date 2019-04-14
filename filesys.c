@@ -7,10 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #define number_of_blocks 128000/64
-static int filesys_inited = 0;
-
+static int filesys_inited = 1;
+long int k=0;
+struct merkle_tree* root_list[8];
+int counter=0;
 /* returns 20 bytes unique hash of the buffer (buf) of length (len)
  * in input array sha1.
  */
@@ -40,24 +43,17 @@ long int find_len(const char file_name[]){
         printf("File Not Found!\n"); 
         return -1; 
     } 
-    fseek(fp, 0L, SEEK_END); 
+    fseek(fp,0, SEEK_END); 
     long int res = ftell(fp); 
-    fclose(fp); 
+    fclose(fp);
     return res; 
-}
-int s_open (const char *pathname, int flags, mode_t mode)
-{
-
-	assert (filesys_inited);
-	int fd1=open (pathname, flags, mode);
-	return fd1;
 }
 ssize_t allocate_block(char *buf,int fd1,int index){
 
 	//lseek(fd1,index*64,SEEK_SET);
 	ssize_t size=read(fd1,buf,sizeof(buf));
 	if(size==-1){
-		printf("%d\n",index);
+		
 		printf("error while allocating block in s_open\n");
 	}
 	return size;
@@ -97,6 +93,8 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 		parent->value=malloc(20);
 		container[i]->parent=parent;
 		container[i+1]->parent=parent;
+		parent->left=container[i];
+		parent->right=container[i+1];
 		get_sha1_hash(strcat1(container[i]->value,container[i+1]->value),40,parent->value);
 		container1[j]=parent;
 		j++;
@@ -107,8 +105,8 @@ struct merkle_tree* build_merkle(struct merkle_tree **container,int n){
 
 	return build_merkle(container1,k);
 }
-int init_container(struct merkle_tree *container[2000],int fd1){
-	for(int i=0;i<2000;i++){
+int init_container(struct merkle_tree *container[k],int fd1){
+	for(int i=0;i<k;i++){
 		container[i]=malloc(sizeof(struct merkle_tree));
 		container[i]->value=malloc(20);
 	}
@@ -124,22 +122,29 @@ int init_container(struct merkle_tree *container[2000],int fd1){
 	}
 	return 1;
 }
-int s_open_temp (const char *pathname, int flags, mode_t mode)
+int s_open(const char *pathname, int flags, mode_t mode)
 {
-	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
-	//assert (filesys_inited);
-	int fd1=open(pathname, flags, mode);
-	int flag=file_descriptior_error(fd1,pathname);
+	assert (filesys_inited);
+	int fd2=open(pathname,flags,mode);
+	int flag=file_descriptior_error(fd2,pathname);
 	if (flag==-1) {
 		return -1;
 	}
-	printf("%s%ld\n","length ",find_len(pathname));
-	struct merkle_tree *container[2000];
-	for(int i=0;i<2000;i++){
+	int fd1=open(pathname,O_RDONLY, mode);
+	flag=file_descriptior_error(fd1,pathname);
+	if (flag==-1) {
+		return -1;
+	}
+	k=find_len(pathname);
+	if(k!=0){
+	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
+	k=k/64;
+	struct merkle_tree *container[k];
+	for(int i=0;i<k;i++){
 		container[i]=malloc(sizeof(struct merkle_tree));
 		container[i]->value=malloc(20);
 	}
-	for(int i=0;i<number_of_blocks;i++){
+	for(int i=0;i<k;i++){
 		char *buf=malloc(64*sizeof(char));
 		ssize_t temp_size=allocate_block(buf,fd1,i);
 		if(temp_size==-1){
@@ -147,13 +152,18 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
 		}
 		unsigned char* hashed_val=malloc(20);
 		get_sha1_hash(buf,64,hashed_val);
+		if(i==0){
+			printf("%s\n",hashed_val);
+		}
 		container[i]->value=hashed_val;
 	}
-	root=build_merkle(container,2000);
-	printf("%s\n",root->value);
+	root=build_merkle(container,k);
+	root->filename=pathname;
+	root_list[counter]=malloc(sizeof(struct merkle_tree));
+	root_list[counter]=root;
+	counter++;
 	lseek(fd1,0,SEEK_SET);
-	printf("successful");
-	close(fd1);
+	printf("successful\n");
 	char * pch;
 	char fileName[32];
 	strcpy(fileName,"secure.txt");
@@ -199,9 +209,10 @@ int s_open_temp (const char *pathname, int flags, mode_t mode)
     	strcat(str1," \n");
     	fprintf(fptr,"%s", str1);
    		fclose(fptr);
-   		printf("%s\n","here" );
     }
-	return fd1;
+}
+close(fd1);
+return fd2;
 }
 /* SEEK_END should always return the file size 
  * updated through the secure file system APIs.
@@ -218,10 +229,69 @@ int s_lseek (int fd, long offset, int whence)
  * update the in-memory Merkle tree and root in secure.txt
  * returns -1 on failing the integrity check.
  */
-
+int checkfile(int fd1,int fd2){
+		struct stat a,b;
+		fstat(fd1, &a);
+		fstat(fd2, &b);
+		if(!((!(a.st_dev==b.st_dev))||(!(a.st_ino==b.st_ino)))){
+			return 1;
+		}
+		else{
+			return 0;
+		}
+}
 ssize_t s_write (int fd, const void *buf, size_t count)
 {
+	
 	assert (filesys_inited);
+	int position = lseek(fd, 0, SEEK_CUR);
+	double p=position+1.0;
+	double index=ceil(p/64.0);
+	int root_index=-1;
+	for(int i=0;i<counter;i++){
+		int fd1=open(root_list[i]->filename, O_WRONLY, 0);
+		if(checkfile(fd,fd1)==1){
+			root_index=i;
+		}
+		close(fd1);
+	}
+	if(root_index==-1){
+		return -2;
+	}
+	else{
+		struct merkle_tree* temp=root_list[root_index];
+		while(temp->left!=NULL){
+			temp=temp->left;
+		}
+		int fd1=open(root_list[root_index]->filename, O_RDONLY, 0);
+		lseek(fd1,((int)index-1)*64, SEEK_SET);
+		char *buffer=malloc(64);
+		allocate_block(buffer,fd1,0);
+		lseek(fd1,0,SEEK_SET);
+		char* hash=malloc(20);
+		get_sha1_hash(buffer,64,hash);
+		close(fd1);
+		if(strcmp((char *)hash,(char *)(temp+((int)index-1)*sizeof(struct merkle_tree))->value)!=0){
+			return -1;
+		}
+		printf("%s\n",root_list[root_index]->value);
+		write (fd, buf, count);
+		int fd2=open(root_list[root_index]->filename,O_RDONLY, S_IRUSR|S_IWUSR);
+		int flag=file_descriptior_error(fd2,root_list[root_index]->filename);
+		if (flag==-1) {
+			return -1;
+		}
+		k=find_len(root_list[root_index]->filename);
+    	struct merkle_tree *container[k];
+		if(init_container(container,fd1)==0){
+			return -1;
+	    }
+		struct merkle_tree* root=build_merkle(container,k);
+		printf("%s\n",root->value);
+		close(fd2);
+
+
+	}
 	return write (fd, buf, count);
 }
 
@@ -231,6 +301,7 @@ ssize_t s_write (int fd, const void *buf, size_t count)
  */
 ssize_t s_read (int fd, void *buf, size_t count)
 {
+
 	assert (filesys_inited);
 	return read (fd, buf, count);
 }
@@ -252,8 +323,8 @@ int filesys_init (void)
 	filesys_inited = 1;
 	char * pch;
 	char filename[32];
-	char *fileNames[2];
-	char *hashvalues[2];
+	char *fileNames[8];
+	char *hashvalues[8];
 	strcpy(filename,"secure.txt");
 	FILE* file = fopen(filename, "a");
 	FILE* file1 = fopen("secure1.txt", "a");
@@ -269,7 +340,6 @@ int filesys_init (void)
 	int count=0;
 	while(fgets(line, sizeof(line), file)){
 	    pch = strtok (line," ");
-
 	    while (pch != NULL)
 	    {
 	    	if(strcmp("\n",pch) == 0){
@@ -306,7 +376,6 @@ int filesys_init (void)
     fclose(file1);
 	printf("duplicates removed\n");
 	int integrity_flag=0;
-		
     for(int i=0;i<count;i++){
     	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
     	int fd1=open(fileNames[i],O_RDONLY, S_IRUSR|S_IWUSR);
@@ -314,11 +383,12 @@ int filesys_init (void)
 		if (flag==-1) {
 			return -1;
 		}
-    	struct merkle_tree *container[2000];
+		k=find_len(fileNames[i]);
+    	struct merkle_tree *container[k];
 		if(init_container(container,fd1)==0){
 			return -1;
 	    }
-		root=build_merkle(container,2000);
+		root=build_merkle(container,k);
 		lseek(fd1,0,SEEK_SET);
 		if(strcmp((char *)root->value,hashvalues[i])!=0){
  			printf("%s\n","integrity failed");
