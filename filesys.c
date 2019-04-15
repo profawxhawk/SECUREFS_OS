@@ -14,6 +14,7 @@ static int filesys_inited = 1;
 long int k=0;
 struct merkle_tree* root_list[8];
 int counter=0;
+long int size_array[8];
 /* returns 20 bytes unique hash of the buffer (buf) of length (len)
  * in input array sha1.
  */
@@ -128,6 +129,7 @@ int s_open(const char *pathname, int flags, mode_t mode)
 		return -1;
 	}
 	k=find_len(pathname);
+	long int si=k;
 	if(k!=0){
 	struct merkle_tree* root=malloc(sizeof(struct merkle_tree));
 	k=k/64;
@@ -151,6 +153,7 @@ int s_open(const char *pathname, int flags, mode_t mode)
 	}
 	root=build_merkle(container,k);
 	root->filename=malloc(10);
+	size_array[counter]=si;
 	strcpy(root->filename,pathname);
 	root_list[counter]=malloc(sizeof(struct merkle_tree));
 	root_list[counter]=root;
@@ -207,21 +210,6 @@ int s_open(const char *pathname, int flags, mode_t mode)
 close(fd1);
 return fd2;
 }
-/* SEEK_END should always return the file size 
- * updated through the secure file system APIs.
- */
-int s_lseek (int fd, long offset, int whence)
-{
-	assert (filesys_inited);
-	return lseek (fd, offset, SEEK_SET);
-}
-
-/* read the blocks that needs to be updated
- * check the integrity of the blocks
- * modify the blocks
- * update the in-memory Merkle tree and root in secure.txt
- * returns -1 on failing the integrity check.
- */
 int checkfile(int fd1,int fd2){
 		struct stat a,b;
 		fstat(fd1, &a);
@@ -233,6 +221,37 @@ int checkfile(int fd1,int fd2){
 			return 0;
 		}
 }
+/* SEEK_END should always return the file size 
+ * updated through the secure file system APIs.
+ */
+int s_lseek (int fd, long offset, int whence)
+{
+	assert (filesys_inited);
+	
+	if((whence==SEEK_END)){
+		int root_index=-1;
+		for(int i=0;i<counter;i++){
+			int fd1=open(root_list[i]->filename, O_WRONLY, 0);
+			if(checkfile(fd,fd1)==1){
+				root_index=i;
+			}
+			close(fd1);
+		}
+		if((root_index!=-1)){
+		long size=lseek (fd,size_array[root_index],SEEK_SET);
+		return size;
+		}
+	}
+	return lseek (fd, offset, SEEK_SET);
+}
+
+/* read the blocks that needs to be updated
+ * check the integrity of the blocks
+ * modify the blocks
+ * update the in-memory Merkle tree and root in secure.txt
+ * returns -1 on failing the integrity check.
+ */
+
 ssize_t s_write (int fd, const void *buf, size_t count)
 {
 	
@@ -275,6 +294,7 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 			return -1;
 		}
 		k=find_len(root_list[root_index]->filename);
+		size_array[root_index]=k;
 		k=k/64;
     	struct merkle_tree *container[k];
 		if(init_container(container,fd1,k)==0){
