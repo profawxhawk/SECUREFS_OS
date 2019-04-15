@@ -17,7 +17,7 @@ static int corrupt_file (char *filename)
 	char val;
 	int offset;
 
-	fd1 = open(filename, O_WRONLY, 0);
+	fd1 = open (filename, O_WRONLY, 0);
 	if (fd1 == -1) {
 		printf ("Unable to open file descriptor1\n");
 		return 0;
@@ -39,7 +39,7 @@ static int open_file (char *filename)
 {
 	int fd2;
 
-	fd2 = s_open(filename, O_RDONLY, 0);
+	fd2 = s_open (filename, O_RDONLY, 0);
 	if (fd2 == -1) {
 		return 0;
 	}

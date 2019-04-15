@@ -84,10 +84,9 @@ int main ()
 	if (ret == 0) {
 		return 0;
 	}
+
 	for (i = 0; i < NUM_FILES; i++) {
 		ret = write_file (fdarr[i], offset);
-		// printf("%d\n",ret);
-		// printf("%d\n",corrupt_idx);
 		if ((ret == 0 && i != corrupt_idx) || (ret == 1 && i == corrupt_idx)) {
 			printf ("write test failed\n");
 			return 0;

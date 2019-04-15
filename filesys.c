@@ -15,6 +15,7 @@ long int k=0;
 struct merkle_tree* root_list[8];
 int counter=0;
 long int size_array[8];
+int global_ckeck=1;
 /* returns 20 bytes unique hash of the buffer (buf) of length (len)
  * in input array sha1.
  */
@@ -268,7 +269,7 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 		close(fd1);
 	}
 	if(root_index==-1){
-		return -2;
+		return write (fd, buf, count);
 	}
 	else{
 		struct merkle_tree* temp=root_list[root_index];
@@ -346,11 +347,56 @@ ssize_t s_write (int fd, const void *buf, size_t count)
  * requested data.
  * returns -1 on failing the integrity check.
  */
+int integrity_check(int fd,size_t size){
+	int position = lseek(fd, 0, SEEK_CUR);
+	double p=position+1.0;
+	double index=ceil(p/64.0);
+	int root_index=-1;
+	for(int i=0;i<counter;i++){
+		int fd1=open(root_list[i]->filename, O_WRONLY, 0);
+		if(checkfile(fd,fd1)==1){
+			root_index=i;
+		}
+		close(fd1);
+	}
+	if(root_index==-1){
+		if(!global_ckeck){
+		return -1;
+		}
+	}
+	else{
+		for(int i=0;i<size/64;i++){
+		struct merkle_tree* temp=root_list[root_index];
+		while(temp->left!=NULL){
+			temp=temp->left;
+		}
+		int fd1=open(root_list[root_index]->filename, O_RDONLY, 0);
+		lseek(fd1,((int)index-1)*64, SEEK_SET);
+		char *buffer=malloc(64);
+		allocate_block(buffer,fd1,0);
+		lseek(fd1,0,SEEK_SET);
+		char* hash=malloc(20);
+		get_sha1_hash(buffer,64,hash);
+		close(fd1);
+		if((char *)hash==(char *)(temp+((int)index-1)*sizeof(struct merkle_tree))->value){
+			return -2;
+		}
+		index+=1;
+	}
+	}
+	return 0;
+}
 ssize_t s_read (int fd, void *buf, size_t count)
 {
 
 	assert (filesys_inited);
-	return read (fd, buf, count);
+	int k=integrity_check(fd,count);
+	if(k==0||k==-2){
+		return read (fd, buf, count);
+    }
+    else{
+    	return -1;
+    }
 }
 
 /* destroy the in-memory Merkle tree */
